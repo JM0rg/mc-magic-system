@@ -20,7 +20,7 @@ public class MagicSystemConfig {
     // Mana settings
     public int baseMana = 100;
     public int manaPerLevel = 10;
-    public int manaRegenerationRate = 1; // mana per second
+    public int manaRegenerationRate = 2; // mana per second (default doubled)
     public int manaRegenerationInterval = 20; // ticks between regeneration
     
     // Spell settings

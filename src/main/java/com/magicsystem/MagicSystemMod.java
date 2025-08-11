@@ -2,6 +2,7 @@ package com.magicsystem;
 
 import com.magicsystem.commands.CastCommand;
 import com.magicsystem.config.MagicSystemConfig;
+import com.magicsystem.effects.EffectsManager;
 import com.magicsystem.mana.ManaManager;
 import com.magicsystem.network.MagicSystemNetworking;
 import com.magicsystem.spells.SpellManager;
@@ -51,9 +52,10 @@ public final class MagicSystemMod implements ModInitializer {
             spellManager.onServerStopping();
         });
         
-        // Register server tick for mana regeneration
+        // Register server tick for mana regeneration and effects
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             manaManager.tick(server);
+            EffectsManager.tick(server);
         });
         
         LOGGER.info("Magic System mod initialized");
