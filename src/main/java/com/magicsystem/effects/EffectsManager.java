@@ -16,10 +16,10 @@ import java.util.*;
 public final class EffectsManager {
     private static final Map<UUID, TrackedProjectile> tracked = new HashMap<>();
 
-    // Trajectory tuning
-    private static final double GRAVITY_PER_TICK = 0.01;   // was 0.04 - gentler arc
-    private static final double DRAG = 0.996;               // was 0.99 - less slowdown
-    private static final int MAX_LIFETIME_TICKS = 120;      // was 60 - longer flight (~6s)
+    // Default trajectory tuning (overridable per projectile)
+    private static final double DEFAULT_GRAVITY_PER_TICK = 0.01;
+    private static final double DEFAULT_DRAG = 0.996;
+    private static final int DEFAULT_MAX_LIFETIME_TICKS = 120;
 
     private EffectsManager() {}
 
@@ -28,12 +28,26 @@ public final class EffectsManager {
     }
 
     public static void trackProjectile(Entity entity, float baseDamage) {
-        trackProjectile(entity, baseDamage, 0.5f, 2.5f, 2.0f); // Default values for backward compatibility
+        trackProjectile(entity, baseDamage, 0.5f, 2.5f, 2.0f);
     }
     
     public static void trackProjectile(Entity entity, float baseDamage, float directHitRadius, float areaDamageRadius, float knockbackStrength) {
         if (entity == null || entity.getWorld().isClient) return;
-        tracked.put(entity.getUuid(), new TrackedProjectile(entity.getUuid(), entity.getWorld().getRegistryKey().getValue().toString(), entity.getPos(), baseDamage, directHitRadius, areaDamageRadius, knockbackStrength));
+        tracked.put(entity.getUuid(), new TrackedProjectile(
+            entity.getUuid(),
+            entity.getWorld().getRegistryKey().getValue().toString(),
+            entity.getPos(),
+            baseDamage,
+            directHitRadius,
+            areaDamageRadius,
+            knockbackStrength,
+            ProjectileParams.builder()
+                .gravityPerTick(DEFAULT_GRAVITY_PER_TICK)
+                .drag(DEFAULT_DRAG)
+                .maxLifetimeTicks(DEFAULT_MAX_LIFETIME_TICKS)
+                .build(),
+            null
+        ));
     }
 
     public static void tick(MinecraftServer server) {
@@ -54,7 +68,11 @@ public final class EffectsManager {
             if (entity != null && entity.isAlive()) {
                 // Apply arc: gravity and drag
                 Vec3d v = entity.getVelocity();
-                Vec3d vNext = new Vec3d(v.x * DRAG, (v.y - GRAVITY_PER_TICK) * DRAG, v.z * DRAG);
+                Vec3d vNext = new Vec3d(
+                    v.x * tp.params.drag,
+                    (v.y - tp.params.gravityPerTick) * tp.params.drag,
+                    v.z * tp.params.drag
+                );
                 entity.setVelocity(vNext);
 
                 // Trail and lifetime handling
@@ -63,16 +81,16 @@ public final class EffectsManager {
                 tp.lastPos = curr;
 
                 tp.ticks++;
-                if (tp.ticks > MAX_LIFETIME_TICKS) {
+                if (tp.ticks > tp.params.maxLifetimeTicks) {
                     // Timed-out: explode and remove
-                    spawnImpact(world, entity.getPos(), tp.baseDamage, tp.directHitRadius, tp.areaDamageRadius, tp.knockbackStrength);
+                    spawnImpact(world, entity.getPos(), tp);
                     entity.discard();
                     it.remove();
                 }
             } else {
                 // Impact occurred or despawned: spawn explosion effects at last known pos
                 if (tp.lastPos != null) {
-                    spawnImpact(world, tp.lastPos, tp.baseDamage, tp.directHitRadius, tp.areaDamageRadius, tp.knockbackStrength);
+                    spawnImpact(world, tp.lastPos, tp);
                 }
                 it.remove();
             }
@@ -101,7 +119,7 @@ public final class EffectsManager {
         }
     }
 
-    private static void spawnImpact(ServerWorld world, Vec3d pos, float baseDamage, float directHitRadius, float areaDamageRadius, float knockbackStrength) {
+    private static void spawnImpact(ServerWorld world, Vec3d pos, TrackedProjectile tp) {
         // Visual explosion (no block damage, no fire placement)
         world.spawnParticles(ParticleTypes.EXPLOSION, pos.x, pos.y, pos.z, 1, 0, 0, 0, 0);
         world.spawnParticles(ParticleTypes.EXPLOSION_EMITTER, pos.x, pos.y, pos.z, 1, 0.0, 0.0, 0.0, 0.0);
@@ -109,7 +127,11 @@ public final class EffectsManager {
         world.playSound(null, pos.x, pos.y, pos.z, SoundEvents.ENTITY_GENERIC_EXPLODE, SoundCategory.PLAYERS, 0.9f, 1.1f);
 
         // Apply AoE damage with spell-specific zones
-        
+        float directHitRadius = tp.directHitRadius;
+        float areaDamageRadius = tp.areaDamageRadius;
+        float knockbackStrength = tp.knockbackStrength;
+        float baseDamage = tp.baseDamage;
+
         double maxRadius = areaDamageRadius;
         Box box = new Box(pos.x - maxRadius, pos.y - maxRadius, pos.z - maxRadius, 
                          pos.x + maxRadius, pos.y + maxRadius, pos.z + maxRadius);
@@ -146,6 +168,11 @@ public final class EffectsManager {
             }
             le.takeKnockback(1.2 * finalKnockback, dx, dz);
         }
+
+        // Custom impact hook (optional)
+        if (tp.customImpact != null) {
+            tp.customImpact.onImpact(world, pos);
+        }
     }
 
     private static ServerWorld findWorld(MinecraftServer server, String key) {
@@ -162,9 +189,11 @@ public final class EffectsManager {
         final float directHitRadius;
         final float areaDamageRadius;
         final float knockbackStrength;
+        final ProjectileParams params;
+        final ImpactHandler customImpact;
         Vec3d lastPos;
         int ticks = 0;
-        TrackedProjectile(UUID id, String worldKey, Vec3d lastPos, float baseDamage, float directHitRadius, float areaDamageRadius, float knockbackStrength) {
+        TrackedProjectile(UUID id, String worldKey, Vec3d lastPos, float baseDamage, float directHitRadius, float areaDamageRadius, float knockbackStrength, ProjectileParams params, ImpactHandler customImpact) {
             this.id = id;
             this.worldKey = worldKey;
             this.lastPos = lastPos;
@@ -172,6 +201,8 @@ public final class EffectsManager {
             this.directHitRadius = directHitRadius;
             this.areaDamageRadius = areaDamageRadius;
             this.knockbackStrength = knockbackStrength;
+            this.params = params;
+            this.customImpact = customImpact;
         }
     }
 }

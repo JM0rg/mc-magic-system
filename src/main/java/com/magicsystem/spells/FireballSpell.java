@@ -30,7 +30,13 @@ public class FireballSpell extends Spell {
             fireball.setPosition(startPos);
 
             if (world.spawnEntity(fireball)) {
-                EffectsManager.trackProjectile(fireball, this.damage, this.directHitRadius, this.areaDamageRadius, this.knockbackStrength);
+                EffectsManager.trackProjectile(
+                    fireball,
+                    this.damage,
+                    this.directHitRadius,
+                    this.areaDamageRadius,
+                    this.knockbackStrength
+                );
             }
             
             sendCastMessage(player);

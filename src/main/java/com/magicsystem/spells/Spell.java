@@ -10,6 +10,7 @@ public abstract class Spell {
     protected final float damage;
     protected final int range;
     protected final boolean requiresTarget;
+    // Impact/effects parameters
     protected final float directHitRadius;
     protected final float areaDamageRadius;
     protected final float knockbackStrength;
@@ -29,6 +30,11 @@ public abstract class Spell {
     }
     
     public abstract boolean cast(ServerPlayerEntity player);
+
+    // Hook: spells can override for custom one-off impact visuals or extra effects
+    public void onImpact(net.minecraft.server.world.ServerWorld world, net.minecraft.util.math.Vec3d pos) {
+        // default no-op
+    }
     
     // Getters
     public String getId() { return id; }
