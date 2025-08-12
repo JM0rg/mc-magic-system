@@ -11,6 +11,10 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.text.Text;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.Identifier;
 
 @Environment(EnvType.CLIENT)
 public class ManaHUD {
@@ -73,5 +77,31 @@ public class ManaHUD {
         int labelY = y - 12;
         
         context.drawTextWithShadow(textRenderer, label, labelX, labelY, 0xFFFFFFFF);
+
+        // --- Active effect timers (top-right) ---
+        // Show remaining time for selected effects (e.g., Safe Descent / Slow Falling)
+        int rightPadding = 8;
+        int topPadding = 8;
+        int effectY = topPadding;
+        int maxNameWidth = 140;
+
+        if (player != null) {
+            for (StatusEffectInstance inst : player.getStatusEffects()) {
+                // Identify effect id
+                Identifier effId = Registries.STATUS_EFFECT.getId(inst.getEffectType().value());
+                if (effId == null) continue;
+
+                // Only show for slow_falling for now
+                if (effId.equals(Identifier.of("minecraft:slow_falling"))) {
+                    String name = "Safe Descent";
+                    int seconds = Math.max(0, inst.getDuration() / 20);
+                    String line = name + ": " + seconds + "s";
+                    int w = textRenderer.getWidth(line);
+                    int tx = client.getWindow().getScaledWidth() - rightPadding - w;
+                    context.drawTextWithShadow(textRenderer, line, tx, effectY, 0xFFFFFFFF);
+                    effectY += 10;
+                }
+            }
+        }
     }
 }

@@ -27,10 +27,10 @@ public class SpellManager {
     }
     
     private void registerSpells() {
-        // Register all available spells
-        spells.put("fireball", new FireballSpell());
-        spells.put("safedescent", new SafeDescentSpell());
-        // Add more spells here as they're created
+        // Load all available spells from registry (data-driven)
+        spells.clear();
+        spells.putAll(com.magicsystem.spells.registry.SpellRegistry.load());
+        com.magicsystem.MagicSystemMod.LOGGER.info("Registered {} spells from config", spells.size());
     }
     
     public boolean castSpell(ServerPlayerEntity player, String spellId) {
