@@ -11,7 +11,8 @@ import net.minecraft.world.World;
 public class FireballSpell extends Spell {
     
     public FireballSpell() {
-        super("fireball", "Fireball", 20, 2000, 16.0f, 64); // mana 20, cooldown 2s, damage 16
+        super("fireball", "Fireball", 20, 2000, 16.0f, 64, false, 
+              0.5f, 2.5f, 2.0f); // directHitRadius=0.5 (2x2), areaDamageRadius=2.5 (5x5), knockbackStrength=2.0
     }
     
     @Override
@@ -25,11 +26,11 @@ public class FireballSpell extends Spell {
 
             // Spawn vanilla small fireball slightly in front of eyes to avoid self hit
             Vec3d startPos = player.getEyePos().add(direction.multiply(1.2));
-            SmallFireballEntity fireball = new SmallFireballEntity(world, player, direction.multiply(1.6));
+            SmallFireballEntity fireball = new SmallFireballEntity(world, player, direction.multiply(5)); // Increased from 1.6 to 2.4 (1.5x faster)
             fireball.setPosition(startPos);
 
             if (world.spawnEntity(fireball)) {
-                EffectsManager.trackProjectile(fireball, this.damage);
+                EffectsManager.trackProjectile(fireball, this.damage, this.directHitRadius, this.areaDamageRadius, this.knockbackStrength);
             }
             
             sendCastMessage(player);

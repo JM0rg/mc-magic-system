@@ -9,14 +9,23 @@ public abstract class Spell {
     protected final int cooldown;
     protected final float damage;
     protected final int range;
+    protected final boolean requiresTarget;
+    protected final float directHitRadius;
+    protected final float areaDamageRadius;
+    protected final float knockbackStrength;
     
-    public Spell(String id, String name, int manaCost, int cooldown, float damage, int range) {
+    public Spell(String id, String name, int manaCost, int cooldown, float damage, int range, boolean requiresTarget, 
+                 float directHitRadius, float areaDamageRadius, float knockbackStrength) {
         this.id = id;
         this.name = name;
         this.manaCost = manaCost;
         this.cooldown = cooldown;
         this.damage = damage;
         this.range = range;
+        this.requiresTarget = requiresTarget;
+        this.directHitRadius = directHitRadius;
+        this.areaDamageRadius = areaDamageRadius;
+        this.knockbackStrength = knockbackStrength;
     }
     
     public abstract boolean cast(ServerPlayerEntity player);
@@ -28,6 +37,10 @@ public abstract class Spell {
     public int getCooldown() { return cooldown; }
     public float getDamage() { return damage; }
     public int getRange() { return range; }
+    public boolean getRequiresTarget() { return requiresTarget; }
+    public float getDirectHitRadius() { return directHitRadius; }
+    public float getAreaDamageRadius() { return areaDamageRadius; }
+    public float getKnockbackStrength() { return knockbackStrength; }
     
     protected void sendCastMessage(ServerPlayerEntity player) {
         player.sendMessage(net.minecraft.text.Text.literal("§aCasting " + name + "!"));

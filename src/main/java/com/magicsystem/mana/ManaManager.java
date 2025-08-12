@@ -4,6 +4,7 @@ import com.magicsystem.MagicSystemMod;
 import com.magicsystem.config.MagicSystemConfig;
 import com.magicsystem.network.MagicSystemNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -29,6 +30,11 @@ public class ManaManager {
         
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             onPlayerLeave(handler.player);
+        });
+        
+        // Register respawn event to reset mana upon death
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+            onPlayerRespawn(newPlayer, alive);
         });
     }
     
@@ -106,6 +112,16 @@ public class ManaManager {
         MagicSystemMod.getSpellManager().onPlayerLeave(playerId);
         
         MagicSystemMod.LOGGER.info("Player {} left, cleaned up mana and spell data", player.getName().getString());
+    }
+    
+    public void onPlayerRespawn(ServerPlayerEntity player, boolean alive) {
+        // Reset mana to 100 upon respawn (after death)
+        if (!alive) { // Player died and respawned
+            ManaData manaData = getManaData(player.getUuid());
+            manaData.setCurrentMana(100);
+            updateMana(player);
+            MagicSystemMod.LOGGER.info("Player {} respawned after death, mana reset to 100", player.getName().getString());
+        }
     }
     
     public void tick(MinecraftServer server) {

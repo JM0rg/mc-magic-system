@@ -4,7 +4,9 @@ import com.magicsystem.MagicSystemMod;
 import com.magicsystem.config.MagicSystemConfig;
 import com.magicsystem.mana.ManaManager;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -49,6 +51,15 @@ public class SpellManager {
             return false;
         }
         
+        // Optional per-spell raycast validation (only if spell requires target)
+        if (spell.getRequiresTarget()) {
+            boolean hit = hasLineOfSightTarget(player, spell.getRange());
+            if (!hit) {
+                player.sendMessage(net.minecraft.text.Text.literal("§cNo valid target in sight."));
+                return false;
+            }
+        }
+        
         // Check cooldown
         if (config.enableSpellCooldowns && isOnCooldown(playerId, spellId, spell.getCooldown())) {
             player.sendMessage(net.minecraft.text.Text.literal("§cSpell is on cooldown!"));
@@ -80,7 +91,6 @@ public class SpellManager {
                 setCooldown(playerId, spellId, spell.getCooldown());
             }
             
-            // Enhanced logging with spell details
             MagicSystemMod.LOGGER.info("Player {} cast spell {} (mana cost: {}, cooldown: {}ms)", 
                 player.getName().getString(), spellId, spell.getManaCost(), spell.getCooldown());
             return true;
@@ -90,6 +100,15 @@ public class SpellManager {
         }
         
         return false;
+    }
+
+    private boolean hasLineOfSightTarget(ServerPlayerEntity player, int range) {
+        Vec3d start = player.getEyePos();
+        Vec3d dir = player.getRotationVec(1.0f).normalize();
+        Vec3d end = start.add(dir.multiply(range));
+        RaycastContext ctx = new RaycastContext(start, end, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, player);
+        HitResult hit = player.getWorld().raycast(ctx);
+        return hit != null && hit.getType() != HitResult.Type.MISS;
     }
     
     private boolean isOnCooldown(UUID playerId, String spellId, int cooldownMs) {
