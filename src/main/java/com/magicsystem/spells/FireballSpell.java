@@ -26,8 +26,15 @@ public class FireballSpell extends Spell {
 
             // Spawn vanilla small fireball slightly in front of eyes to avoid self hit
             Vec3d startPos = player.getEyePos().add(direction.multiply(1.2));
-            SmallFireballEntity fireball = new SmallFireballEntity(world, player, direction.multiply(5)); // Increased from 1.6 to 2.4 (1.5x faster)
+            // Use constructor that takes owner and acceleration vector
+            SmallFireballEntity fireball = new SmallFireballEntity(
+                world,
+                player,
+                direction.multiply(0.1) // small acceleration per tick
+            );
             fireball.setPosition(startPos);
+            // Explicitly set the initial velocity to control speed (adjust multiplier as desired)
+            fireball.setVelocity(direction.multiply(1.0));
 
             if (world.spawnEntity(fireball)) {
                 EffectsManager.trackProjectile(
