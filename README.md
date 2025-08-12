@@ -1,155 +1,159 @@
-# Magic System Mod
+# Magic System (Fabric 1.21.8)
 
-A comprehensive magic system for Minecraft 1.21.8 on Fabric that provides spells, mana management, and cooldowns. This mod is designed to work with the YellSpells mod for voice-activated spellcasting.
-
-## Features
-
-- **Mana System**: Players have a mana pool that regenerates over time
-- **Spell System**: Configurable spells with mana costs and cooldowns
-- **Command Integration**: Cast spells using `/cast <spellname>` commands
-- **Visual HUD**: Mana bar displayed on the client
-- **Extensible Design**: Easy to add new spells and modify existing ones
+A configurable, data‑driven magic framework: mana, cooldowns, HUD, and a growing library of spells. Designed to work great on its own and integrates cleanly with the YellSpells voice mod.
 
 ## Requirements
 
 - Minecraft 1.21.8
-- Fabric Loader 0.17.2+
-- Fabric API 0.131.0+
-- Java 21+
+- Fabric Loader ≥ 0.17.2
+- Fabric API ≥ 0.131.0
+- Java 21
 
-## Installation
+## Highlights
 
-1. Install Fabric Loader for Minecraft 1.21.8
-2. Download and install Fabric API
-3. Download this mod and place it in your mods folder
-4. Start Minecraft and configure the mod
+- Data‑driven spells loaded from `config/magicsystem_spells.json`
+- Server‑side mana and cooldown enforcement
+- HUD with compact “pip” mana display above the health bar
+- Built‑in spells: Fireball, Safe Descent (slow falling)
+- Compatible with YellSpells for voice commands
+
+## How it works (overview)
+
+- Server loads global settings from `config/magicsystem.json` and spells from `config/magicsystem_spells.json`.
+- All spell casting and mana checks happen on the server (`/cast <id>`).
+- Client HUD shows mana pips and selected effect timers.
+
+## Mana system
+
+- Max mana = `baseMana + (playerLevel * manaPerLevel)`
+- Regeneration: every `manaRegenerationInterval` ticks, restore `manaRegenerationRate` mana
+- Values are server‑configurable (see “Configuration”)
+
+## Mana HUD
+
+- 10 mana per pip; number of pips scales with max mana (rounded up)
+- Pips are rendered directly above the vanilla health row
+- Color: blue fill with subtle border; compact and unobtrusive
+- Effect timers: selected effects (e.g., Safe Descent) show time remaining (seconds) in the top‑right
+
+## Spells (built‑ins)
+
+- Fireball (`fireball`)
+  - Type: projectile (large fireball visuals, block‑safe)
+  - Defaults: `manaCost: 20`, `cooldown: 2000ms`, `damage: 16.0`, `explosionPower: 0`, `velocity: 1.0`, `range: 64`
+  - Cast sound: `minecraft:entity.firework_rocket.launch`
+
+- Safe Descent (`safedescent`)
+  - Type: status effect (applies Slow Falling)
+  - Defaults: `manaCost: 50`, `cooldown: 40000ms`, `effects: [{ id: minecraft:slow_falling, duration: 600, amplifier: 0 }]`
+  - Cast sound: `minecraft:entity.evoker.cast_spell`
+
+## Commands
+
+- `/cast <spellId>` — casts a spell by id (server‑side validation and consumption)
 
 ## Configuration
 
-The mod creates a configuration file at `config/magicsystem.json` with the following settings:
+### Global settings — `config/magicsystem.json`
 
-### Mana Settings
-- `baseMana`: Base mana pool (default: 100)
-- `manaPerLevel`: Additional mana per experience level (default: 10)
-- `manaRegenerationRate`: Mana regeneration per second (default: 1)
-- `manaRegenerationInterval`: Ticks between regeneration (default: 20)
+- `baseMana` (default 100)
+- `manaPerLevel` (default 10)
+- `manaRegenerationRate` (default 2)
+- `manaRegenerationInterval` ticks (default 20)
+- `enableSpellCooldowns` (default true)
+- `enableManaCosts` (default true)
+- `globalSpellDamageMultiplier` (default 1.0)
 
-### Spell Settings
-- `enableSpellCooldowns`: Enable spell cooldowns (default: true)
-- `enableManaCosts`: Enable mana costs for spells (default: true)
-- `globalSpellDamageMultiplier`: Global damage multiplier for spells (default: 1.0)
+This file is created automatically on first run and can be edited then reloaded by restarting the server/game.
 
-## Usage
+### Spells — `config/magicsystem_spells.json`
 
-### Commands
-- `/cast fireball` - Cast a fireball spell
+Created automatically on first run with safe defaults. Example:
 
-### Spells
+```json
+{
+  "fireball": {
+    "type": "projectile",
+    "name": "Fireball",
+    "manaCost": 20,
+    "cooldown": 2000,
+    "projectile": { "variant": "fireball", "velocity": 1.0, "explosionPower": 0, "startOffset": 1.2 },
+    "damage": 16.0,
+    "directHitRadius": 0.5,
+    "areaDamageRadius": 2.5,
+    "knockbackStrength": 2.0,
+    "castSound": "minecraft:entity.firework_rocket.launch"
+  },
+  "safedescent": {
+    "type": "status_effect",
+    "name": "Safe Descent",
+    "manaCost": 50,
+    "cooldown": 40000,
+    "castSound": "minecraft:entity.evoker.cast_spell",
+    "castParticleCount": 24,
+    "effects": [
+      { "id": "minecraft:slow_falling", "duration": 600, "amplifier": 0 }
+    ]
+  }
+}
+```
 
-#### Fireball
-- **Mana Cost**: 25
-- **Cooldown**: 3 seconds
-- **Damage**: 8.0 hearts
-- **Range**: 64 blocks
-- **Description**: Launches a fireball projectile in the direction you're looking
+Supported spell families today:
 
-## Integration with YellSpells
+- `status_effect`: applies one or more vanilla status effects to the caster
+  - keys: `effects[]` (`id`, `duration`, `amplifier`), optional `castSound`, `castParticleCount`
+- `projectile`: fires a vanilla projectile with tuned parameters
+  - keys: `projectile.variant` (`fireball`|`small_fireball`), `projectile.velocity`, `projectile.explosionPower`, `projectile.startOffset`, optional `castSound`
+  - damage AOE: `damage`, `directHitRadius`, `areaDamageRadius`, `knockbackStrength`
 
-This mod is designed to work with the YellSpells mod. When YellSpells detects a voice command, it can execute the corresponding `/cast` command to trigger spells from this mod.
+Add new spells by adding entries to `magicsystem_spells.json`. Restart to apply.
 
-Example integration:
-- Player says "fireball" → YellSpells executes `/cast fireball` → Magic System casts the fireball spell
+## YellSpells integration (optional)
 
-## Development
+- YellSpells can map voice keywords to `/cast <spellId>`
+- Its config (`yellspells.json`) supports multiple keywords, per‑spell cooldowns, and a reload command `/yellspells reload`
 
-### Building from Source
+## Building from source
 
 ```bash
 ./gradlew build
 ```
 
-### Project Structure
+### Project structure (key files)
 
 ```
 src/main/java/com/magicsystem/
-├── MagicSystemMod.java              # Main mod class
+├── MagicSystemMod.java                  # Main mod class, events
 ├── config/
-│   └── MagicSystemConfig.java       # Configuration system
+│   └── MagicSystemConfig.java           # Global server settings
 ├── mana/
-│   ├── ManaManager.java             # Mana management
-│   └── ManaData.java                # Player mana data
+│   ├── ManaManager.java                 # Mana/cooldown server logic
+│   └── ManaData.java
 ├── spells/
-│   ├── SpellManager.java            # Spell management
-│   ├── Spell.java                   # Base spell class
-│   └── FireballSpell.java           # Fireball implementation
+│   ├── Spell.java                       # Base spell abstraction
+│   ├── SpellManager.java                # Registry + casting entrypoint
+│   ├── core/
+│   │   ├── StatusEffectSpell.java       # Generic status-effect spell
+│   │   └── ProjectileSpell.java         # Generic projectile spell
+│   └── registry/
+│       └── SpellRegistry.java           # Loads config/magicsystem_spells.json
 ├── commands/
-│   └── CastCommand.java             # Cast command
+│   └── CastCommand.java                 # `/cast <id>`
 └── client/
     └── hud/
-        └── ManaHUD.java             # Mana display HUD
+        └── ManaHUD.java                 # Mana pips + effect timers
 ```
-
-### Adding New Spells
-
-1. Create a new spell class extending `Spell`:
-```java
-public class LightningSpell extends Spell {
-    public LightningSpell() {
-        super("lightning", "Lightning", 50, 5000, 12.0f, 32);
-    }
-    
-    @Override
-    public boolean cast(ServerPlayerEntity player) {
-        // Implementation here
-        return true;
-    }
-}
-```
-
-2. Register the spell in `SpellManager.registerSpells()`:
-```java
-spells.put("lightning", new LightningSpell());
-```
-
-3. Add the command to your voice system or use `/cast lightning`
-
-### Spell Properties
-
-Each spell has the following configurable properties:
-- **id**: Unique identifier for the spell
-- **name**: Display name
-- **manaCost**: Mana required to cast
-- **cooldown**: Cooldown in milliseconds
-- **damage**: Base damage amount
-- **range**: Maximum range
-
-## Performance
-
-- Minimal impact on game performance
-- Efficient mana regeneration system
-- Optimized spell casting with proper validation
 
 ## Troubleshooting
 
-### Common Issues
-
-1. **Spells not casting**: Check mana requirements and cooldowns
-2. **Mana not regenerating**: Verify configuration settings
-3. **HUD not showing**: Ensure you're on the client side
-
-### Logs
-
-Check the Minecraft logs for detailed error information. Look for entries from "MagicSystem".
+- Fireball explodes blocks: ensure `explosionPower` is `0` in `magicsystem_spells.json`
+- Mana doesn’t regenerate: check `manaRegenerationRate` and `manaRegenerationInterval`
+- HUD not visible: ensure HUD is enabled (F1 hides it) and you’re on the client
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License (see `LICENSE`).
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
-
-## Acknowledgments
-
-- [Fabric](https://fabricmc.net/) for the modding framework
-- [YellSpells](https://github.com/your-repo/yell-spells) for voice integration inspiration
+Issues and PRs are welcome. Please include Minecraft/Fabric versions and reproduction steps.
