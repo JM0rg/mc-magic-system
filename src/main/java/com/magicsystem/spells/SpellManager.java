@@ -29,6 +29,7 @@ public class SpellManager {
     private void registerSpells() {
         // Register all available spells
         spells.put("fireball", new FireballSpell());
+        spells.put("safedescent", new SafeDescentSpell());
         // Add more spells here as they're created
     }
     
