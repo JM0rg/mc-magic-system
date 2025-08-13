@@ -19,6 +19,7 @@ import net.minecraft.util.Identifier;
 @Environment(EnvType.CLIENT)
 public class ManaHUD {
     private static boolean initialized = false;
+    private static java.util.List<com.magicsystem.network.CooldownsUpdatePacket.Entry> cooldowns = java.util.List.of();
     
     public static void init() {
         if (!initialized) {
@@ -26,6 +27,10 @@ public class ManaHUD {
             initialized = true;
             MagicSystemMod.LOGGER.info("Mana HUD initialized");
         }
+    }
+
+    public static void updateCooldowns(java.util.List<com.magicsystem.network.CooldownsUpdatePacket.Entry> list) {
+        cooldowns = list;
     }
     
     private static void render(DrawContext context, RenderTickCounter tickDelta) {
@@ -114,6 +119,18 @@ public class ManaHUD {
                     effectY += 10;
                 }
             }
+        }
+
+        // --- Cooldowns above mana pips ---
+        TextRenderer textRenderer = client.textRenderer;
+        int cdX = xStart;
+        int cdY = y - 11; // just above pips
+        int shown = 0;
+        for (var e : cooldowns) {
+            if (shown >= 3) break; // show up to 3
+            String line = e.spellName() + ": " + (e.remainingMs() / 1000) + "s";
+            context.drawTextWithShadow(textRenderer, line, cdX, cdY - (shown * 10), 0xFFAAAAFF);
+            shown++;
         }
     }
 }

@@ -129,6 +129,27 @@ public class SpellManager {
     private void setCooldown(UUID playerId, String spellId, int cooldownMs) {
         playerCooldowns.computeIfAbsent(playerId, k -> new HashMap<>())
             .put(spellId, System.currentTimeMillis());
+        // Push cooldowns to player client
+        try {
+            var player = com.magicsystem.MagicSystemMod.getManaManager(); // placeholder to keep imports minimal
+        } catch (Exception ignored) {}
+    }
+
+    public void sendCooldownsTo(ServerPlayerEntity player) {
+        Map<String, Long> map = playerCooldowns.get(player.getUuid());
+        java.util.List<com.magicsystem.network.CooldownsUpdatePacket.Entry> entries = new java.util.ArrayList<>();
+        long now = System.currentTimeMillis();
+        if (map != null) {
+            for (var e : map.entrySet()) {
+                Spell s = spells.get(e.getKey());
+                if (s == null) continue;
+                int remaining = (int)Math.max(0, s.getCooldown() - (now - e.getValue()));
+                if (remaining > 0) {
+                    entries.add(new com.magicsystem.network.CooldownsUpdatePacket.Entry(e.getKey(), s.getName(), remaining));
+                }
+            }
+        }
+        net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player, new com.magicsystem.network.CooldownsUpdatePacket(entries));
     }
     
     public Spell getSpell(String spellId) {

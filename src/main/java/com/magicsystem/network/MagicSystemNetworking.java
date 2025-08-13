@@ -14,6 +14,7 @@ public class MagicSystemNetworking {
     public static void registerServer() {
         // Register packet types
         PayloadTypeRegistry.playS2C().register(ManaUpdatePacket.ID, ManaUpdatePacket.CODEC);
+        PayloadTypeRegistry.playS2C().register(CooldownsUpdatePacket.ID, CooldownsUpdatePacket.CODEC);
         
         MagicSystemMod.LOGGER.info("Magic System server networking registered");
     }
@@ -24,6 +25,11 @@ public class MagicSystemNetworking {
         ClientPlayNetworking.registerGlobalReceiver(ManaUpdatePacket.ID, (payload, context) -> {
             context.client().execute(() -> {
                 ClientManaManager.updateMana(payload.currentMana(), payload.maxMana());
+            });
+        });
+        ClientPlayNetworking.registerGlobalReceiver(CooldownsUpdatePacket.ID, (payload, context) -> {
+            context.client().execute(() -> {
+                com.magicsystem.client.hud.ManaHUD.updateCooldowns(payload.entries());
             });
         });
         

@@ -11,6 +11,7 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +59,13 @@ public final class MagicSystemMod implements ModInitializer {
             manaManager.tick(server);
             EffectsManager.tick(server);
             WallManager.tick(server);
+        });
+
+        // Send cooldowns to players periodically (each second)
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            for (net.minecraft.server.network.ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+                spellManager.sendCooldownsTo(p);
+            }
         });
         
         LOGGER.info("Magic System mod initialized");
