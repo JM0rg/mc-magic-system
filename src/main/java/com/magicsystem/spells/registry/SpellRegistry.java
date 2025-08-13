@@ -5,6 +5,7 @@ import com.magicsystem.MagicSystemMod;
 import com.magicsystem.spells.Spell;
 import com.magicsystem.spells.core.ProjectileSpell;
 import com.magicsystem.spells.core.StatusEffectSpell;
+import com.magicsystem.spells.GreatWallSpell;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
@@ -69,11 +70,17 @@ public final class SpellRegistry {
                             damage, directHit, areaRadius, knockback
                         ));
                     }
+                    case "wall" -> {
+                        // Custom coded spell type: Great Wall
+                        out.put(id, new GreatWallSpell());
+                    }
                     default -> {
                         MagicSystemMod.LOGGER.warn("Unknown spell type '{}' for id '{}'", type, id);
                     }
                 }
             }
+            // Ensure critical built-ins exist even if older configs don't have them yet
+            out.putIfAbsent("greatwall", new com.magicsystem.spells.GreatWallSpell());
             return out;
         } catch (Exception e) {
             MagicSystemMod.LOGGER.error("Failed to load spells, falling back to empty set", e);
@@ -124,6 +131,16 @@ public final class SpellRegistry {
                 effects.add(e);
                 s.add("effects", effects);
                 root.add("safedescent", s);
+            }
+
+            // Default Great Wall
+            {
+                JsonObject s = new JsonObject();
+                s.addProperty("type", "wall");
+                s.addProperty("name", "Great Wall");
+                s.addProperty("manaCost", 40);
+                s.addProperty("cooldown", 10000);
+                root.add("greatwall", s);
             }
 
             Files.writeString(CONFIG_PATH, GSON.toJson(root));
