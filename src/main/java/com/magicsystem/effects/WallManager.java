@@ -25,9 +25,11 @@ public final class WallManager {
                               int width, int height,
                               int riseTicks,
                               int holdTicks,
-                              BlockPos center) {
+                              BlockPos center,
+                              BlockState material,
+                              boolean allowReplace) {
         if (positions == null || positions.isEmpty()) return;
-        ACTIVE.add(new WallInstance(world.getRegistryKey().getValue().toString(), positions, width, height, riseTicks, holdTicks, center));
+        ACTIVE.add(new WallInstance(world.getRegistryKey().getValue().toString(), positions, width, height, riseTicks, holdTicks, center, material == null ? Blocks.STONE.getDefaultState() : material, allowReplace));
     }
 
     public static void tick(MinecraftServer server) {
@@ -69,20 +71,22 @@ public final class WallManager {
         for (BlockPos pos : w.positions) {
             int baseY = w.baseY.getOrDefault(new BlockPos(pos.getX(), 0, pos.getZ()), pos.getY());
             int y = pos.getY();
-            int layerIndex = y - baseY; // 0..height-1
+            int layerIndex = y - baseY; // computed column base
             if (layerIndex < layers) {
                 BlockState current = world.getBlockState(pos);
                 if (current.isAir()) {
-                    // Place normally
-                    world.setBlockState(pos, Blocks.STONE.getDefaultState());
-                } else if (current.isOf(Blocks.STONE)) {
+                    world.setBlockState(pos, w.material);
+                } else if (current.isOf(w.material.getBlock())) {
                     // Already our wall block; do nothing
-                } else {
+                } else if (w.allowReplace) {
                     // Override non-air but remember original only once
                     if (!w.replaced.containsKey(pos)) {
                         w.replaced.put(pos, current);
                     }
-                    world.setBlockState(pos, Blocks.STONE.getDefaultState());
+                    world.setBlockState(pos, w.material);
+                } else {
+                    // Not allowed to replace; skip this block
+                    continue;
                 }
                 // Rise particles (use simpler particles for compatibility)
                 Vec3d p = Vec3d.ofCenter(pos);
@@ -108,7 +112,7 @@ public final class WallManager {
         // Center dissolve sound
         world.playSound(null, w.center, SoundEvents.BLOCK_STONE_BREAK, SoundCategory.BLOCKS, 1.0f, 1.0f);
         for (BlockPos pos : w.positions) {
-            if (world.getBlockState(pos).isOf(Blocks.STONE)) {
+            if (world.getBlockState(pos).isOf(w.material.getBlock())) {
                 // Restore replaced block if any; else air
                 BlockState original = w.replaced.get(pos);
                 if (original != null) {
@@ -140,9 +144,11 @@ public final class WallManager {
         final BlockPos center;
         final Map<BlockPos, Integer> baseY = new HashMap<>();
         final Map<BlockPos, BlockState> replaced = new HashMap<>();
+        final BlockState material;
+        final boolean allowReplace;
         int ticks = 0;
 
-        WallInstance(String worldKey, List<BlockPos> positions, int width, int height, int riseTicks, int holdTicks, BlockPos center) {
+        WallInstance(String worldKey, List<BlockPos> positions, int width, int height, int riseTicks, int holdTicks, BlockPos center, BlockState material, boolean allowReplace) {
             this.worldKey = worldKey;
             this.positions = positions;
             this.width = width;
@@ -150,6 +156,8 @@ public final class WallManager {
             this.riseTicks = Math.max(1, riseTicks);
             this.holdTicks = Math.max(0, holdTicks);
             this.center = center;
+            this.material = material;
+            this.allowReplace = allowReplace;
             // compute baseY per column (x,z)
             for (BlockPos p : positions) {
                 BlockPos key = new BlockPos(p.getX(), 0, p.getZ());

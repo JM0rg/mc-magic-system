@@ -34,8 +34,11 @@ public class MagicSystemConfig {
                 String content = Files.readString(CONFIG_PATH);
                 JsonObject json = JsonParser.parseString(content).getAsJsonObject();
                 
-                // Mana settings are code-defined. JSON values (if present) are ignored intentionally.
-                // This preserves server-authoritative tuning and prevents client-side edits from changing behavior.
+                // Load mana settings (JSON overrides defaults)
+                if (json.has("baseMana")) baseMana = json.get("baseMana").getAsInt();
+                if (json.has("manaPerLevel")) manaPerLevel = json.get("manaPerLevel").getAsInt();
+                if (json.has("manaRegenerationRate")) manaRegenerationRate = json.get("manaRegenerationRate").getAsInt();
+                if (json.has("manaRegenerationInterval")) manaRegenerationInterval = json.get("manaRegenerationInterval").getAsInt();
                 
                 // Load spell settings
                 if (json.has("enableSpellCooldowns")) enableSpellCooldowns = json.get("enableSpellCooldowns").getAsBoolean();

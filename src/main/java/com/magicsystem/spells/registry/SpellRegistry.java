@@ -71,8 +71,14 @@ public final class SpellRegistry {
                         ));
                     }
                     case "wall" -> {
-                        // Custom coded spell type: Great Wall
-                        out.put(id, new GreatWallSpell());
+                        // Configurable Great Wall parameters
+                        int width = getInt(s, "width", 7);
+                        int height = getInt(s, "height", 4);
+                        int range = getInt(s, "range", 20);
+                        int riseTicks = getInt(s, "riseTicks", 20);
+                        int holdTicks = getInt(s, "holdTicks", 100);
+                        boolean allowReplace = s.has("allowReplace") && s.get("allowReplace").getAsBoolean();
+                        out.put(id, new GreatWallSpell(id, name, mana, cd, width, height, range, riseTicks, holdTicks, allowReplace));
                     }
                     default -> {
                         MagicSystemMod.LOGGER.warn("Unknown spell type '{}' for id '{}'", type, id);
@@ -80,7 +86,7 @@ public final class SpellRegistry {
                 }
             }
             // Ensure critical built-ins exist even if older configs don't have them yet
-            out.putIfAbsent("greatwall", new com.magicsystem.spells.GreatWallSpell());
+            out.putIfAbsent("greatwall", new com.magicsystem.spells.GreatWallSpell("greatwall", "Great Wall", 40, 10000, 7, 4, 20, 20, 100, true));
             return out;
         } catch (Exception e) {
             MagicSystemMod.LOGGER.error("Failed to load spells, falling back to empty set", e);
@@ -140,6 +146,12 @@ public final class SpellRegistry {
                 s.addProperty("name", "Great Wall");
                 s.addProperty("manaCost", 40);
                 s.addProperty("cooldown", 10000);
+                s.addProperty("width", 7);
+                s.addProperty("height", 4);
+                s.addProperty("range", 20);
+                s.addProperty("riseTicks", 20);
+                s.addProperty("holdTicks", 100);
+                s.addProperty("allowReplace", true);
                 root.add("greatwall", s);
             }
 

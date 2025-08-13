@@ -1,8 +1,6 @@
 package com.magicsystem.spells;
 
 import com.magicsystem.effects.WallManager;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -17,10 +15,29 @@ import net.minecraft.world.RaycastContext;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Great Wall spell that reads its parameters from config.
+ */
 public class GreatWallSpell extends Spell {
+    private final int width;
+    private final int height;
+    private final int range;
+    private final int riseTicks;
+    private final int holdTicks;
+    private final boolean allowReplace;
+    private final net.minecraft.block.BlockState material;
 
-    public GreatWallSpell() {
-        super("greatwall", "Great Wall", 40, 10000, 0f, 20, true, 0, 0, 0);
+    public GreatWallSpell(String id, String name, int manaCost, int cooldown,
+                                      int width, int height, int range, int riseTicks, int holdTicks,
+                                      boolean allowReplace) {
+        super(id, name, manaCost, cooldown, 0f, range, true, 0f, 0f, 0f);
+        this.width = width;
+        this.height = height;
+        this.range = range;
+        this.riseTicks = riseTicks;
+        this.holdTicks = holdTicks;
+        this.allowReplace = allowReplace;
+        this.material = net.minecraft.block.Blocks.GRAVEL.getDefaultState();
     }
 
     @Override
@@ -28,12 +45,11 @@ public class GreatWallSpell extends Spell {
         try {
             ServerWorld world = (ServerWorld) player.getWorld();
 
-            // Raycast up to 20 blocks
+            // Raycast up to configured range
             Vec3d start = player.getEyePos();
             Vec3d dir = player.getRotationVec(1.0f).normalize();
-            Vec3d end = start.add(dir.multiply(20.0));
-            RaycastContext ctx = new RaycastContext(start, end, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, player);
-            HitResult hit = world.raycast(ctx);
+            Vec3d end = start.add(dir.multiply(range));
+            HitResult hit = world.raycast(new RaycastContext(start, end, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, player));
             if (hit == null || hit.getType() != HitResult.Type.BLOCK) {
                 sendFailureMessage(player, "No valid ground in sight.");
                 return false;
@@ -41,32 +57,45 @@ public class GreatWallSpell extends Spell {
 
             BlockPos target = ((BlockHitResult) hit).getBlockPos().up();
 
-            // Align wall perpendicular to player's facing (horizontal)
+            // Align wall perpendicular to player's facing
             Direction facing = player.getHorizontalFacing();
-            // If player faces north/south, wall runs east-west (x varies). If east/west, wall runs north-south (z varies)
             boolean alongX = (facing == Direction.NORTH || facing == Direction.SOUTH);
 
-            int width = 7;  // columns
-            int height = 4; // rows
-            int half = width / 2; // 3
-
-            // Build candidate block positions (override any blocks; will be restored on dissolve)
+            int half = width / 2;
             List<BlockPos> planned = new ArrayList<>();
+            // Keep a level top height across the wall
+            int topY = target.getY() + (height - 1);
             for (int dx = -half; dx <= half; dx++) {
-                for (int dy = 0; dy < height; dy++) {
-                    int x = alongX ? target.getX() + dx : target.getX();
-                    int z = alongX ? target.getZ() : target.getZ() + dx;
-                    BlockPos p = new BlockPos(x, target.getY() + dy, z);
-                    planned.add(p);
+                int x = alongX ? target.getX() + dx : target.getX();
+                int z = alongX ? target.getZ() : target.getZ() + dx;
+
+                // Desired bottom for the visible wall (keeps top level)
+                int bottomDesired = topY - (height - 1);
+
+                // Fill below the desired bottom if there is a gap (so gravel doesn't drop and over-stack)
+                int scanY = bottomDesired - 1;
+                int worldBottom = world.getBottomY();
+                while (scanY >= worldBottom && world.getBlockState(new BlockPos(x, scanY, z)).isAir()) {
+                    scanY--;
+                }
+                int fillStartY = scanY + 1; // first air above solid (or bottom)
+
+                // Add fill blocks beneath bottomDesired (do not count towards wall height)
+                for (int fy = fillStartY; fy < bottomDesired; fy++) {
+                    planned.add(new BlockPos(x, fy, z));
+                }
+
+                // Add the actual wall blocks from bottomDesired up to topY (height tall)
+                for (int wy = bottomDesired; wy <= topY; wy++) {
+                    planned.add(new BlockPos(x, wy, z));
                 }
             }
 
-            // Casting effects at player
-            world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_STONE_PLACE, SoundCategory.PLAYERS, 1.0f, 1.0f);
+            // Casting sound
+            world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_GRAVEL_PLACE, SoundCategory.PLAYERS, 1.0f, 1.0f);
 
-            // Create wall instance (rise 20 ticks = 1s, hold 100 ticks = 5s)
-            WallManager.create(world, planned, width, height, 20, 100, target);
-
+            // Create wall with configured material and replacement policy
+            WallManager.create(world, planned, width, height, riseTicks, holdTicks, target, material, allowReplace);
             sendCastMessage(player);
             return true;
         } catch (Exception e) {
